@@ -1,30 +1,30 @@
-use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
+use crate::modules::history_manager::{HistoryManager, HistoryRecord, OperationHistory};
+use std::sync::Mutex;
+use tauri::State;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum OperationType {
-    CloseProcess,
-    DisableAutostart,
-}
+pub struct HistoryManagerState(pub Mutex<HistoryManager>);
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HistoryEntry {
-    pub id: String,
-    pub operation_type: OperationType,
-    pub target: String,
-    pub timestamp: DateTime<Utc>,
-    pub reverted: bool,
+#[tauri::command]
+pub fn get_history(state: State<HistoryManagerState>) -> OperationHistory {
+    let manager = state.0.lock().unwrap();
+    manager.get_history().clone()
 }
 
 #[tauri::command]
-pub fn get_history() -> Vec<HistoryEntry> {
-    // Placeholder - will be implemented in Task 10
-    vec![]
+pub fn add_history_record(
+    record: HistoryRecord,
+    state: State<HistoryManagerState>,
+) -> Result<String, String> {
+    let mut manager = state.0.lock().unwrap();
+    manager.add_record(record)?;
+    Ok("History record added".to_string())
 }
 
 #[tauri::command]
-pub fn revert_operation(entry_id: String) -> Result<(), String> {
-    // Placeholder - will be implemented in Task 10
-    let _ = entry_id;
-    Err("Revert operation not yet implemented".to_string())
+pub fn revert_operation(
+    id: String,
+    state: State<HistoryManagerState>,
+) -> Result<HistoryRecord, String> {
+    let mut manager = state.0.lock().unwrap();
+    manager.revert_operation(&id)
 }
