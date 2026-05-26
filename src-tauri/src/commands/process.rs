@@ -1,24 +1,18 @@
-use serde::Serialize;
-use tauri::State;
+use crate::modules::process_manager::{ProcessInfo, ProcessManager};
 use std::sync::Mutex;
+use tauri::State;
 
-#[derive(Debug, Clone, Serialize)]
-pub struct ProcessInfo {
-    pub pid: u32,
-    pub name: String,
-    pub path: Option<String>,
-    pub memory_usage: u64,
-    pub cpu_usage: f32,
+pub struct ProcessManagerState(pub Mutex<ProcessManager>);
+
+#[tauri::command]
+pub fn get_all_processes(state: State<ProcessManagerState>) -> Vec<ProcessInfo> {
+    let mut manager = state.0.lock().unwrap();
+    manager.get_all_processes()
 }
 
 #[tauri::command]
-pub fn get_all_processes() -> Vec<ProcessInfo> {
-    // Placeholder - will be implemented in Task 2
-    vec![]
-}
-
-#[tauri::command]
-pub fn close_process(pid: u32) -> Result<(), String> {
-    // Placeholder - will be implemented in Task 2
-    Err(format!("Close process {} not yet implemented", pid))
+pub fn close_process(pid: u32, state: State<ProcessManagerState>) -> Result<String, String> {
+    let mut manager = state.0.lock().unwrap();
+    manager.close_process(pid)?;
+    Ok(format!("Process {} closed successfully", pid))
 }
