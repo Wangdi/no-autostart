@@ -3,7 +3,9 @@ mod modules;
 mod tray;
 mod utils;
 
+use commands::config::ConfigManagerState;
 use commands::process::ProcessManagerState;
+use modules::config_manager::ConfigManager;
 use modules::process_manager::ProcessManager;
 use tauri::Manager;
 
@@ -11,10 +13,17 @@ use tauri::Manager;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .manage(ProcessManagerState(std::sync::Mutex::new(
-            ProcessManager::new(),
-        )))
         .setup(|app| {
+            // Initialize managers
+            let process_manager = ProcessManager::new();
+            let config_manager = ConfigManager::new(app)?;
+
+            app.manage(ProcessManagerState(std::sync::Mutex::new(
+                process_manager,
+            )));
+            app.manage(ConfigManagerState(std::sync::Mutex::new(config_manager)));
+
+            // Setup system tray
             tray::setup_tray(app)?;
             Ok(())
         })
