@@ -1,10 +1,7 @@
-use std::ffi::OsString;
-use std::os::windows::ffi::OsStringExt;
-use std::ptr;
 use windows::Win32::Foundation::{CloseHandle, HANDLE, MAX_PATH};
 use windows::Win32::System::Threading::{
     OpenProcess, QueryFullProcessImageNameW, TerminateProcess,
-    PROCESSENTRY32W, PROCESS_QUERY_INFORMATION, PROCESS_TERMINATE, PROCESS_VM_READ,
+    PROCESS_NAME_FORMAT, PROCESS_QUERY_INFORMATION, PROCESS_TERMINATE, PROCESS_VM_READ,
 };
 use windows::Win32::System::ProcessStatus::{GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS};
 
@@ -28,8 +25,13 @@ impl ProcessHandle {
             let mut buffer = [0u16; MAX_PATH as usize];
             let mut size = MAX_PATH as u32;
 
-            QueryFullProcessImageNameW(self.0, 0, &mut buffer, &mut size as *mut u32)
-                .map_err(|e| format!("Failed to get process path: {}", e))?;
+            QueryFullProcessImageNameW(
+                self.0,
+                PROCESS_NAME_FORMAT(0),
+                windows::core::PWSTR(buffer.as_mut_ptr()),
+                &mut size,
+            )
+            .map_err(|e| format!("Failed to get process path: {}", e))?;
 
             let path = String::from_utf16_lossy(&buffer[..size as usize]);
             Ok(path)
