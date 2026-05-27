@@ -33,3 +33,10 @@ data/
 
 # Test coverage
 coverage/
+
+# Tauri generated
+src-tauri/gen/
+
+# Temporary scripts
+*.ps1
+create_icon*.py
