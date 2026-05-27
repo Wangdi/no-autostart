@@ -43,6 +43,11 @@ impl KnowledgeManager {
             .app_data_dir()
             .map_err(|e| format!("Failed to get app data dir: {}", e))?;
 
+        Self::new_with_path(data_dir)
+    }
+
+    // Test-friendly constructor
+    pub fn new_with_path(data_dir: PathBuf) -> Result<Self, String> {
         // Ensure data directory exists
         fs::create_dir_all(&data_dir)
             .map_err(|e| format!("Failed to create data dir: {}", e))?;
@@ -141,5 +146,308 @@ impl KnowledgeManager {
                 },
             ],
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+
+    fn get_test_dir() -> PathBuf {
+        let mut path = env::temp_dir();
+        path.push(format!("no_autostart_knowledge_test_{}", std::process::id()));
+        path
+    }
+
+    fn cleanup_test_dir(path: &PathBuf) {
+        let _ = fs::remove_dir_all(path);
+    }
+
+    #[test]
+    fn test_lookup_returns_correct_item() {
+        let test_dir = get_test_dir();
+        cleanup_test_dir(&test_dir);
+
+        let manager = KnowledgeManager::new_with_path(test_dir.clone()).unwrap();
+
+        // Test exact case lookup
+        let result = manager.lookup("WeChat.exe");
+        assert!(result.is_some(), "Should find WeChat.exe");
+        assert_eq!(result.unwrap().process_name, "WeChat.exe");
+
+        // Test svchost lookup
+        let result = manager.lookup("svchost.exe");
+        assert!(result.is_some(), "Should find svchost.exe");
+        let item = result.unwrap();
+        assert_eq!(item.process_name, "svchost.exe");
+        assert!(!item.can_close);
+        assert_eq!(item.risk_level, "warning");
+
+        // Test explorer lookup
+        let result = manager.lookup("explorer.exe");
+        assert!(result.is_some(), "Should find explorer.exe");
+        let item = result.unwrap();
+        assert_eq!(item.process_name, "explorer.exe");
+        assert!(!item.can_close);
+
+        cleanup_test_dir(&test_dir);
+    }
+
+    #[test]
+    fn test_lookup_is_case_insensitive() {
+        let test_dir = get_test_dir();
+        cleanup_test_dir(&test_dir);
+
+        let manager = KnowledgeManager::new_with_path(test_dir.clone()).unwrap();
+
+        // Various case variations
+        let variations = vec![
+            "wechat.exe",
+            "WECHAT.EXE",
+            "WeChat.exe",
+            "weCHAT.exe",
+            "SVCHOST.EXE",
+            "svchost.exe",
+            "Svchost.exe",
+            "EXPLORER.EXE",
+            "explorer.exe",
+            "Explorer.exe",
+        ];
+
+        for variation in variations {
+            let result = manager.lookup(variation);
+            assert!(
+                result.is_some(),
+                "Should find process with case-insensitive lookup for '{}'",
+                variation
+            );
+        }
+
+        cleanup_test_dir(&test_dir);
+    }
+
+    #[test]
+    fn test_lookup_returns_none_for_unknown_process() {
+        let test_dir = get_test_dir();
+        cleanup_test_dir(&test_dir);
+
+        let manager = KnowledgeManager::new_with_path(test_dir.clone()).unwrap();
+
+        let result = manager.lookup("unknown-process.exe");
+        assert!(result.is_none(), "Should return None for unknown process");
+
+        let result = manager.lookup("");
+        assert!(result.is_none(), "Should return None for empty string");
+
+        let result = manager.lookup("not-in-database.exe");
+        assert!(result.is_none(), "Should return None for non-existent process");
+
+        cleanup_test_dir(&test_dir);
+    }
+
+    #[test]
+    fn test_get_all_returns_all_items() {
+        let test_dir = get_test_dir();
+        cleanup_test_dir(&test_dir);
+
+        let manager = KnowledgeManager::new_with_path(test_dir.clone()).unwrap();
+
+        let all_items = manager.get_all();
+        assert_eq!(all_items.len(), 3, "Should return all 3 default items");
+
+        // Verify all expected processes are present
+        let process_names: Vec<&str> = all_items
+            .iter()
+            .map(|item| item.process_name.as_str())
+            .collect();
+
+        assert!(process_names.contains(&"WeChat.exe"));
+        assert!(process_names.contains(&"svchost.exe"));
+        assert!(process_names.contains(&"explorer.exe"));
+
+        cleanup_test_dir(&test_dir);
+    }
+
+    #[test]
+    fn test_knowledge_manager_creates_default_knowledge_file() {
+        let test_dir = get_test_dir();
+        cleanup_test_dir(&test_dir);
+
+        // Create new manager
+        let _manager = KnowledgeManager::new_with_path(test_dir.clone()).unwrap();
+
+        // Verify file was created
+        let knowledge_file = test_dir.join("process_knowledge.json");
+        assert!(knowledge_file.exists(), "Should create knowledge file");
+
+        // Verify file content
+        let content = fs::read_to_string(&knowledge_file).unwrap();
+        let knowledge: ProcessKnowledge = serde_json::from_str(&content).unwrap();
+        assert_eq!(knowledge.processes.len(), 3);
+
+        cleanup_test_dir(&test_dir);
+    }
+
+    #[test]
+    fn test_knowledge_manager_loads_existing_file() {
+        let test_dir = get_test_dir();
+        cleanup_test_dir(&test_dir);
+
+        fs::create_dir_all(&test_dir).unwrap();
+
+        // Create a custom knowledge file
+        let custom_knowledge = ProcessKnowledge {
+            processes: vec![
+                ProcessKnowledgeItem {
+                    process_name: "CustomProcess.exe".to_string(),
+                    description: "Custom process for testing".to_string(),
+                    function: "Testing".to_string(),
+                    startup_method: "Manual".to_string(),
+                    performance_impact: "None".to_string(),
+                    can_close: true,
+                    recommendation: "Can be closed".to_string(),
+                    risk_level: "safe".to_string(),
+                    tags: vec!["test".to_string()],
+                },
+            ],
+        };
+
+        let knowledge_file = test_dir.join("process_knowledge.json");
+        fs::write(
+            &knowledge_file,
+            serde_json::to_string_pretty(&custom_knowledge).unwrap(),
+        )
+        .unwrap();
+
+        // Load manager - should load the custom file
+        let manager = KnowledgeManager::new_with_path(test_dir.clone()).unwrap();
+
+        let all_items = manager.get_all();
+        assert_eq!(all_items.len(), 1);
+        assert_eq!(all_items[0].process_name, "CustomProcess.exe");
+
+        // Default items should not be present
+        assert!(manager.lookup("WeChat.exe").is_none());
+
+        cleanup_test_dir(&test_dir);
+    }
+
+    #[test]
+    fn test_process_knowledge_item_creation() {
+        let item = ProcessKnowledgeItem {
+            process_name: "TestProcess.exe".to_string(),
+            description: "Test process".to_string(),
+            function: "Testing things".to_string(),
+            startup_method: "Manual start".to_string(),
+            performance_impact: "Low impact".to_string(),
+            can_close: true,
+            recommendation: "Safe to close".to_string(),
+            risk_level: "safe".to_string(),
+            tags: vec!["test".to_string(), "utility".to_string()],
+        };
+
+        assert_eq!(item.process_name, "TestProcess.exe");
+        assert_eq!(item.description, "Test process");
+        assert_eq!(item.function, "Testing things");
+        assert_eq!(item.startup_method, "Manual start");
+        assert_eq!(item.performance_impact, "Low impact");
+        assert!(item.can_close);
+        assert_eq!(item.recommendation, "Safe to close");
+        assert_eq!(item.risk_level, "safe");
+        assert_eq!(item.tags, vec!["test", "utility"]);
+    }
+
+    #[test]
+    fn test_process_knowledge_serialization() {
+        let item = ProcessKnowledgeItem {
+            process_name: "Serializable.exe".to_string(),
+            description: "Test".to_string(),
+            function: "Test".to_string(),
+            startup_method: "Test".to_string(),
+            performance_impact: "Test".to_string(),
+            can_close: false,
+            recommendation: "Don't close".to_string(),
+            risk_level: "dangerous".to_string(),
+            tags: vec!["test".to_string()],
+        };
+
+        let json = serde_json::to_string(&item).expect("Should serialize");
+        let deserialized: ProcessKnowledgeItem =
+            serde_json::from_str(&json).expect("Should deserialize");
+
+        assert_eq!(item.process_name, deserialized.process_name);
+        assert_eq!(item.can_close, deserialized.can_close);
+        assert_eq!(item.risk_level, deserialized.risk_level);
+        assert_eq!(item.tags, deserialized.tags);
+    }
+
+    #[test]
+    fn test_reload_reloads_from_file() {
+        let test_dir = get_test_dir();
+        cleanup_test_dir(&test_dir);
+
+        // Create manager with default knowledge
+        let mut manager = KnowledgeManager::new_with_path(test_dir.clone()).unwrap();
+        assert_eq!(manager.get_all().len(), 3);
+
+        // Modify the file directly
+        let new_knowledge = ProcessKnowledge {
+            processes: vec![ProcessKnowledgeItem {
+                process_name: "NewProcess.exe".to_string(),
+                description: "New".to_string(),
+                function: "New".to_string(),
+                startup_method: "New".to_string(),
+                performance_impact: "New".to_string(),
+                can_close: true,
+                recommendation: "New".to_string(),
+                risk_level: "safe".to_string(),
+                tags: vec![],
+            }],
+        };
+
+        let knowledge_file = test_dir.join("process_knowledge.json");
+        fs::write(
+            &knowledge_file,
+            serde_json::to_string_pretty(&new_knowledge).unwrap(),
+        )
+        .unwrap();
+
+        // Reload and verify
+        manager.reload().unwrap();
+        assert_eq!(manager.get_all().len(), 1);
+        assert!(manager.lookup("NewProcess.exe").is_some());
+
+        cleanup_test_dir(&test_dir);
+    }
+
+    #[test]
+    fn test_default_knowledge() {
+        let test_dir = get_test_dir();
+        cleanup_test_dir(&test_dir);
+
+        let manager = KnowledgeManager::new_with_path(test_dir.clone()).unwrap();
+
+        // Verify WeChat entry specific details
+        let wechat = manager.lookup("WeChat.exe").unwrap();
+        assert_eq!(wechat.process_name, "WeChat.exe");
+        assert_eq!(wechat.function, "即时通讯和社交");
+        assert!(wechat.can_close);
+        assert_eq!(wechat.risk_level, "safe");
+        assert_eq!(wechat.tags, vec!["社交", "通讯"]);
+
+        // Verify svchost specific details
+        let svchost = manager.lookup("svchost.exe").unwrap();
+        assert_eq!(svchost.process_name, "svchost.exe");
+        assert_eq!(svchost.function, "承载多个Windows系统服务");
+        assert!(!svchost.can_close);
+        assert_eq!(svchost.risk_level, "warning");
+
+        // Verify explorer specific details
+        let explorer = manager.lookup("explorer.exe").unwrap();
+        assert_eq!(explorer.process_name, "explorer.exe");
+        assert!(!explorer.can_close);
+
+        cleanup_test_dir(&test_dir);
     }
 }
