@@ -454,4 +454,114 @@ mod tests {
 
         cleanup_test_dir(&test_dir);
     }
+
+    #[test]
+    fn test_knowledge_item_with_all_fields() {
+        let item = ProcessKnowledgeItem {
+            process_name: "FullTest.exe".to_string(),
+            description: "测试描述".to_string(),
+            function: "测试功能描述".to_string(),
+            startup_method: "registry".to_string(),
+            performance_impact: "low".to_string(),
+            can_close: true,
+            recommendation: "可以安全关闭".to_string(),
+            risk_level: "safe".to_string(),
+            tags: vec!["测试".to_string(), "开发".to_string()],
+        };
+
+        let json = serde_json::to_string(&item).expect("Should serialize");
+        let deserialized: ProcessKnowledgeItem = serde_json::from_str(&json).expect("Should deserialize");
+
+        assert_eq!(deserialized.process_name, "FullTest.exe");
+        assert_eq!(deserialized.function, "测试功能描述");
+        assert!(deserialized.can_close);
+        assert_eq!(deserialized.risk_level, "safe");
+        assert_eq!(deserialized.tags, vec!["测试", "开发"]);
+        assert_eq!(deserialized.recommendation, "可以安全关闭");
+    }
+
+    #[test]
+    fn test_knowledge_item_minimal_fields() {
+        let item = ProcessKnowledgeItem {
+            process_name: "Minimal.exe".to_string(),
+            description: String::new(),
+            function: String::new(),
+            startup_method: String::new(),
+            performance_impact: String::new(),
+            can_close: false,
+            recommendation: String::new(),
+            risk_level: String::new(),
+            tags: vec![],
+        };
+
+        let json = serde_json::to_string(&item).expect("Should serialize");
+        let deserialized: ProcessKnowledgeItem = serde_json::from_str(&json).expect("Should deserialize");
+
+        assert_eq!(deserialized.process_name, "Minimal.exe");
+        assert!(deserialized.function.is_empty());
+        assert!(!deserialized.can_close);
+        assert!(deserialized.tags.is_empty());
+        assert!(deserialized.recommendation.is_empty());
+    }
+
+    #[test]
+    fn test_multiple_lookups_same_manager() {
+        let test_dir = get_test_dir();
+        cleanup_test_dir(&test_dir);
+
+        let manager = KnowledgeManager::new_with_path(test_dir.clone()).unwrap();
+
+        // Multiple lookups should work consistently
+        let result1 = manager.lookup("WeChat.exe");
+        let result2 = manager.lookup("wechat.exe"); // lowercase
+        let result3 = manager.lookup("WECHAT.EXE"); // uppercase
+
+        assert!(result1.is_some());
+        assert!(result2.is_some());
+        assert!(result3.is_some());
+
+        // All should return the same item (case insensitive)
+        assert_eq!(result1.unwrap().process_name, result2.unwrap().process_name);
+        assert_eq!(result1.unwrap().process_name, result3.unwrap().process_name);
+
+        cleanup_test_dir(&test_dir);
+    }
+
+    #[test]
+    fn test_get_all_returns_consistent_order() {
+        let test_dir = get_test_dir();
+        cleanup_test_dir(&test_dir);
+
+        let manager = KnowledgeManager::new_with_path(test_dir.clone()).unwrap();
+
+        let all1 = manager.get_all();
+        let all2 = manager.get_all();
+
+        // Should return same count and order
+        assert_eq!(all1.len(), all2.len());
+
+        for (a, b) in all1.iter().zip(all2.iter()) {
+            assert_eq!(a.process_name, b.process_name);
+        }
+
+        cleanup_test_dir(&test_dir);
+    }
+
+    #[test]
+    fn test_knowledge_risk_levels() {
+        let test_dir = get_test_dir();
+        cleanup_test_dir(&test_dir);
+
+        let manager = KnowledgeManager::new_with_path(test_dir.clone()).unwrap();
+
+        // Check various risk levels exist in default knowledge
+        let items = manager.get_all();
+        let risk_levels: Vec<&str> = items.iter().map(|i| i.risk_level.as_str()).collect();
+
+        assert!(risk_levels.contains(&"safe"), "Should have 'safe' risk level");
+        assert!(risk_levels.contains(&"warning"), "Should have 'warning' risk level");
+        // Note: 'dangerous' might not exist in default knowledge, so we don't assert it
+
+        cleanup_test_dir(&test_dir);
+    }
 }

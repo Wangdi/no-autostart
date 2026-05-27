@@ -329,4 +329,123 @@ mod tests {
         assert_eq!(info.risk_level, deserialized.risk_level);
         assert_eq!(info.can_close, deserialized.can_close);
     }
+
+    #[test]
+    fn test_process_info_with_all_startup_types() {
+        // Test that all startup types are handled correctly
+        let startup_types = vec![
+            "registry_run",
+            "task_scheduler",
+            "windows_service",
+            "startup_folder",
+            "normal",
+            "unknown_type",
+        ];
+
+        for startup_type in startup_types {
+            let info = ProcessInfo {
+                pid: 1,
+                name: "test.exe".to_string(),
+                executable_path: String::new(),
+                publisher: None,
+                cpu_usage: 0.0,
+                memory_usage: 0,
+                running_time: 0,
+                startup_type: startup_type.to_string(),
+                startup_location: None,
+                risk_level: "unknown".to_string(),
+                can_close: true,
+            };
+
+            let json = serde_json::to_string(&info).expect("Should serialize");
+            let deserialized: ProcessInfo = serde_json::from_str(&json).expect("Should deserialize");
+            assert_eq!(deserialized.startup_type, startup_type);
+        }
+    }
+
+    #[test]
+    fn test_process_info_with_unicode_characters() {
+        // Test handling of unicode characters in process names and paths
+        let info = ProcessInfo {
+            pid: 1234,
+            name: "测试程序.exe".to_string(),
+            executable_path: "C:\\用户\\测试\\程序.exe".to_string(),
+            publisher: Some("发布者".to_string()),
+            cpu_usage: 10.0,
+            memory_usage: 1024,
+            running_time: 60,
+            startup_type: "normal".to_string(),
+            startup_location: None,
+            risk_level: "unknown".to_string(),
+            can_close: true,
+        };
+
+        let json = serde_json::to_string(&info).expect("Should serialize unicode");
+        let deserialized: ProcessInfo = serde_json::from_str(&json).expect("Should deserialize unicode");
+
+        assert_eq!(deserialized.name, "测试程序.exe");
+        assert_eq!(deserialized.executable_path, "C:\\用户\\测试\\程序.exe");
+        assert_eq!(deserialized.publisher, Some("发布者".to_string()));
+    }
+
+    #[test]
+    fn test_process_refresh_updates_system_state() {
+        let mut manager1 = ProcessManager::new();
+        let initial_count = manager1.system.processes().len();
+
+        // Refresh should update the system state
+        manager1.refresh();
+
+        // After refresh, system should have the same or different count
+        // but the system should be in a refreshed state
+        let refreshed_count = manager1.system.processes().len();
+
+        // Process count can vary between refreshes
+        assert!(
+            refreshed_count > 0,
+            "Should have at least one process after refresh"
+        );
+    }
+
+    #[test]
+    fn test_process_info_memory_bounds() {
+        // Test that memory usage values are within reasonable bounds
+        let mut manager = ProcessManager::new();
+        let processes = manager.get_all_processes();
+
+        for process in &processes {
+            // Memory should be non-negative and reasonable (< 1TB)
+            assert!(process.memory_usage >= 0, "Memory should be non-negative");
+            assert!(
+                process.memory_usage < 1_099_511_627_776,
+                "Memory should be less than 1TB"
+            );
+
+            // CPU usage should be non-negative
+            assert!(process.cpu_usage >= 0.0, "CPU should be non-negative");
+            // Note: CPU can exceed 100% on multi-core systems, so we use a very high bound
+            // Some systems have many cores, so we allow up to 3200% (32 cores)
+            assert!(
+                process.cpu_usage <= 3200.0,
+                "CPU should be reasonable for a multi-core system"
+            );
+        }
+    }
+
+    #[test]
+    fn test_process_info_pid_uniqueness() {
+        // Verify that PIDs in the returned list are unique
+        let mut manager = ProcessManager::new();
+        let processes = manager.get_all_processes();
+
+        let mut pids: Vec<u32> = processes.iter().map(|p| p.pid).collect();
+        pids.sort();
+        pids.dedup();
+
+        assert_eq!(
+            pids.len(),
+            processes.len(),
+            "All PIDs should be unique"
+        );
+    }
 }

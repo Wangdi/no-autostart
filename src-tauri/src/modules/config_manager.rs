@@ -364,4 +364,123 @@ mod tests {
         assert_eq!(config.version, deserialized.version);
         assert_eq!(config.last_updated, deserialized.last_updated);
     }
+
+    #[test]
+    fn test_add_duplicate_items() {
+        let test_dir = get_test_dir();
+        cleanup_test_dir(&test_dir);
+
+        let mut manager = ConfigManager::new_with_path(test_dir.clone()).unwrap();
+
+        let item1 = AutoCloseItem {
+            id: "id-1".to_string(),
+            process_name: "same.exe".to_string(),
+            executable_path: "C:\\test\\same.exe".to_string(),
+            added_at: chrono::Utc::now().to_rfc3339(),
+            permanent_action: None,
+        };
+
+        let item2 = AutoCloseItem {
+            id: "id-2".to_string(),
+            process_name: "same.exe".to_string(), // Same process name
+            executable_path: "C:\\test\\same.exe".to_string(),
+            added_at: chrono::Utc::now().to_rfc3339(),
+            permanent_action: None,
+        };
+
+        manager.add_to_auto_close_list(item1).unwrap();
+        manager.add_to_auto_close_list(item2).unwrap();
+
+        // Both items should be added (no deduplication)
+        let config = manager.get_config();
+        assert_eq!(config.auto_close_list.len(), 2);
+
+        cleanup_test_dir(&test_dir);
+    }
+
+    #[test]
+    fn test_large_auto_close_list() {
+        let test_dir = get_test_dir();
+        cleanup_test_dir(&test_dir);
+
+        let mut manager = ConfigManager::new_with_path(test_dir.clone()).unwrap();
+
+        // Add 100 items
+        for i in 0..100 {
+            let item = AutoCloseItem {
+                id: format!("id-{}", i),
+                process_name: format!("process{}.exe", i),
+                executable_path: format!("C:\\test\\process{}.exe", i),
+                added_at: chrono::Utc::now().to_rfc3339(),
+                permanent_action: None,
+            };
+            manager.add_to_auto_close_list(item).unwrap();
+        }
+
+        let config = manager.get_config();
+        assert_eq!(config.auto_close_list.len(), 100);
+
+        // Verify persistence with large list
+        let config_path = test_dir.join("config.json");
+        let content = fs::read_to_string(&config_path).unwrap();
+        let loaded: AutoCloseConfig = serde_json::from_str(&content).unwrap();
+        assert_eq!(loaded.auto_close_list.len(), 100);
+
+        cleanup_test_dir(&test_dir);
+    }
+
+    #[test]
+    fn test_settings_update() {
+        let test_dir = get_test_dir();
+        cleanup_test_dir(&test_dir);
+
+        let mut manager = ConfigManager::new_with_path(test_dir.clone()).unwrap();
+
+        // Update settings
+        let mut config = manager.get_config().clone();
+        config.settings.check_interval = 60;
+        config.settings.show_notification = false;
+        config.settings.auto_run_on_login = false;
+
+        manager.save_config(config).unwrap();
+
+        let updated = manager.get_config();
+        assert_eq!(updated.settings.check_interval, 60);
+        assert!(!updated.settings.show_notification);
+        assert!(!updated.settings.auto_run_on_login);
+
+        cleanup_test_dir(&test_dir);
+    }
+
+    #[test]
+    fn test_permanent_action_field() {
+        let test_dir = get_test_dir();
+        cleanup_test_dir(&test_dir);
+
+        let mut manager = ConfigManager::new_with_path(test_dir.clone()).unwrap();
+
+        let permanent_action = PermanentAction {
+            action_type: "always_close".to_string(),
+            description: "Always close this process".to_string(),
+            executed_at: chrono::Utc::now().to_rfc3339(),
+            original_location: None,
+        };
+
+        let item = AutoCloseItem {
+            id: "perm-item".to_string(),
+            process_name: "permanent.exe".to_string(),
+            executable_path: "C:\\test\\permanent.exe".to_string(),
+            added_at: chrono::Utc::now().to_rfc3339(),
+            permanent_action: Some(permanent_action),
+        };
+
+        manager.add_to_auto_close_list(item).unwrap();
+
+        let config = manager.get_config();
+        let stored_action = config.auto_close_list[0].permanent_action.as_ref().unwrap();
+        assert_eq!(stored_action.action_type, "always_close");
+        assert_eq!(stored_action.description, "Always close this process");
+
+        cleanup_test_dir(&test_dir);
+    }
 }

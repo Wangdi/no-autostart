@@ -378,4 +378,139 @@ mod tests {
 
         cleanup_test_dir(&test_dir);
     }
+
+    #[test]
+    fn test_multiple_revert_operations() {
+        let test_dir = get_test_dir();
+        cleanup_test_dir(&test_dir);
+
+        let mut manager = HistoryManager::new_with_path(test_dir.clone()).unwrap();
+
+        // Add multiple records
+        let record1 = create_test_record("multi-1", "completed");
+        let record2 = create_test_record("multi-2", "completed");
+        let record3 = create_test_record("multi-3", "completed");
+
+        manager.add_record(record1).unwrap();
+        manager.add_record(record2).unwrap();
+        manager.add_record(record3).unwrap();
+
+        // Revert two of them
+        manager.revert_operation("multi-1").unwrap();
+        manager.revert_operation("multi-3").unwrap();
+
+        let history = manager.get_history();
+        let reverted_ids: Vec<&str> = history
+            .records
+            .iter()
+            .filter(|r| r.status == "reverted")
+            .map(|r| r.id.as_str())
+            .collect();
+
+        assert_eq!(reverted_ids.len(), 2);
+        assert!(reverted_ids.contains(&"multi-1"));
+        assert!(reverted_ids.contains(&"multi-3"));
+
+        cleanup_test_dir(&test_dir);
+    }
+
+    #[test]
+    fn test_large_history_list() {
+        let test_dir = get_test_dir();
+        cleanup_test_dir(&test_dir);
+
+        let mut manager = HistoryManager::new_with_path(test_dir.clone()).unwrap();
+
+        // Add 50 records
+        for i in 0..50 {
+            let record = HistoryRecord {
+                id: format!("large-{}", i),
+                timestamp: chrono::Utc::now().to_rfc3339(),
+                operation_type: "close_process".to_string(),
+                process_snapshot: ProcessSnapshot {
+                    pid: 1000 + i,
+                    name: format!("process{}.exe", i),
+                    executable_path: format!("C:\\test\\process{}.exe", i),
+                    startup_type: "normal".to_string(),
+                    startup_location: None,
+                },
+                permanent_action: None,
+                status: "completed".to_string(),
+                reverted_at: None,
+            };
+            manager.add_record(record).unwrap();
+        }
+
+        let history = manager.get_history();
+        assert_eq!(history.records.len(), 50);
+
+        // Verify the most recent is at front
+        assert_eq!(history.records[0].id, "large-49");
+
+        cleanup_test_dir(&test_dir);
+    }
+
+    #[test]
+    fn test_history_with_different_operation_types() {
+        let test_dir = get_test_dir();
+        cleanup_test_dir(&test_dir);
+
+        let mut manager = HistoryManager::new_with_path(test_dir.clone()).unwrap();
+
+        let operations = ["close_process", "block_process", "allow_process"];
+
+        for (i, op_type) in operations.iter().enumerate() {
+            let record = HistoryRecord {
+                id: format!("op-{}", i),
+                timestamp: chrono::Utc::now().to_rfc3339(),
+                operation_type: op_type.to_string(),
+                process_snapshot: ProcessSnapshot {
+                    pid: 1000 + i as u32,
+                    name: format!("{}.exe", op_type),
+                    executable_path: String::new(),
+                    startup_type: "normal".to_string(),
+                    startup_location: None,
+                },
+                permanent_action: None,
+                status: "completed".to_string(),
+                reverted_at: None,
+            };
+            manager.add_record(record).unwrap();
+        }
+
+        let history = manager.get_history();
+        assert_eq!(history.records.len(), 3);
+
+        // Verify all operation types are present
+        let op_types: Vec<&str> = history
+            .records
+            .iter()
+            .map(|r| r.operation_type.as_str())
+            .collect();
+
+        for op_type in &operations {
+            assert!(op_types.contains(op_type));
+        }
+
+        cleanup_test_dir(&test_dir);
+    }
+
+    #[test]
+    fn test_process_snapshot_fields() {
+        let snapshot = ProcessSnapshot {
+            pid: 12345,
+            name: "test.exe".to_string(),
+            executable_path: "C:\\test\\test.exe".to_string(),
+            startup_type: "registry_run".to_string(),
+            startup_location: Some("HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run".to_string()),
+        };
+
+        let json = serde_json::to_string(&snapshot).expect("Should serialize");
+        let deserialized: ProcessSnapshot = serde_json::from_str(&json).expect("Should deserialize");
+
+        assert_eq!(deserialized.pid, 12345);
+        assert_eq!(deserialized.name, "test.exe");
+        assert_eq!(deserialized.startup_type, "registry_run");
+        assert!(deserialized.startup_location.is_some());
+    }
 }
