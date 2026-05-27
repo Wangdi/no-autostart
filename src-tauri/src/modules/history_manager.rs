@@ -105,9 +105,12 @@ impl HistoryManager {
         record.status = String::from("reverted");
         record.reverted_at = Some(Utc::now().to_rfc3339());
 
+        // Clone before save() to release the mutable borrow
+        let record_clone = record.clone();
+
         self.save()?;
 
-        Ok(record.clone())
+        Ok(record_clone)
     }
 
     fn save(&self) -> Result<(), String> {

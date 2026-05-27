@@ -17,8 +17,8 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             let process_manager = ProcessManager::new();
-            let config_manager = ConfigManager::new(app)?;
-            let history_manager = HistoryManager::new(app)?;
+            let config_manager = ConfigManager::new(app.handle())?;
+            let history_manager = HistoryManager::new(app.handle())?;
 
             app.manage(ProcessManagerState(std::sync::Mutex::new(
                 process_manager,
