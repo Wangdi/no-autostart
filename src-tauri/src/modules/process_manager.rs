@@ -291,7 +291,7 @@ mod tests {
         assert_eq!(info.pid, 1234);
         assert_eq!(info.name, "test.exe");
         assert_eq!(info.executable_path, "C:\\test\\test.exe");
-        assert_eq!(info.publisher, Some("Test Publisher"));
+        assert_eq!(info.publisher, Some("Test Publisher".to_string()));
         assert_eq!(info.cpu_usage, 15.5);
         assert_eq!(info.memory_usage, 1024000);
         assert_eq!(info.running_time, 3600);

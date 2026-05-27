@@ -128,10 +128,14 @@ impl HistoryManager {
 mod tests {
     use super::*;
     use std::env;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
 
     fn get_test_dir() -> PathBuf {
+        let counter = TEST_COUNTER.fetch_add(1, Ordering::SeqCst);
         let mut path = env::temp_dir();
-        path.push(format!("no_autostart_history_test_{}", std::process::id()));
+        path.push(format!("no_autostart_history_test_{}_{}", std::process::id(), counter));
         path
     }
 
