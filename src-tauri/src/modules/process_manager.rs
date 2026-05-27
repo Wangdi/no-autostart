@@ -278,7 +278,7 @@ mod tests {
             pid: 1234,
             name: "test.exe".to_string(),
             executable_path: "C:\\test\\test.exe".to_string(),
-            publisher: Some("Test Publisher"),
+            publisher: Some("Test Publisher".to_string()),
             cpu_usage: 15.5,
             memory_usage: 1024000,
             running_time: 3600,
