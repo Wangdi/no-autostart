@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use sysinfo::{Pid, Process, ProcessStatus, System};
+use sysinfo::{Pid, Process, System};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProcessInfo {
@@ -74,7 +73,7 @@ impl ProcessManager {
 
         ProcessInfo {
             pid: pid.as_u32(),
-            name: process.name().to_string_lossy().to_string(),
+            name: process.name().to_string(),
             executable_path: process
                 .exe()
                 .map(|p| p.to_string_lossy().to_string())
@@ -92,7 +91,7 @@ impl ProcessManager {
 
     fn detect_startup_type(&self, process: &Process) -> (String, Option<String>) {
         // This will be enhanced with actual registry and task scheduler checks
-        let name = process.name().to_string_lossy().to_lowercase();
+        let name = process.name().to_lowercase();
 
         // Check for known system processes
         let system_processes = [
