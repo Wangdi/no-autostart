@@ -1,7 +1,8 @@
-mod commands;
-mod modules;
-mod tray;
-mod utils;
+pub mod commands;
+pub mod error;
+pub mod modules;
+pub mod tray;
+pub mod utils;
 
 use commands::config::ConfigManagerState;
 use commands::history::HistoryManagerState;

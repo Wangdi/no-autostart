@@ -1,5 +1,5 @@
 :root {
-  /* Colors */
+  /* Color Palette - Dark Theme (Default) */
   --color-bg-primary: #1a1a2e;
   --color-bg-secondary: #16213e;
   --color-bg-tertiary: #0f3460;
@@ -11,6 +11,21 @@
   --color-warning: #fbbf24;
   --color-danger: #ef4444;
   --color-border: #2a2a4a;
+  --color-shadow: rgba(0, 0, 0, 0.3);
+
+  /* Risk Level Colors */
+  --color-risk-safe: #4ade80;
+  --color-risk-low: #60a5fa;
+  --color-risk-unknown: #9ca3af;
+  --color-risk-warning: #fbbf24;
+  --color-risk-dangerous: #ef4444;
+
+  /* Startup Type Colors */
+  --color-startup-registry: #e94560;
+  --color-startup-folder: #60a5fa;
+  --color-startup-service: #a78bfa;
+  --color-startup-task: #fbbf24;
+  --color-startup-normal: #9ca3af;
 
   /* Spacing */
   --spacing-xs: 4px;
@@ -27,6 +42,39 @@
   /* Transitions */
   --transition-fast: 150ms ease;
   --transition-normal: 250ms ease;
+  --transition-slow: 350ms ease;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 var(--color-shadow);
+  --shadow-md: 0 4px 6px -1px var(--color-shadow);
+  --shadow-lg: 0 10px 15px -3px var(--color-shadow);
+
+  /* Font sizes */
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-base: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 18px;
+  --font-size-2xl: 24px;
+}
+
+/* Light Theme */
+:root[data-theme="light"] {
+  --color-bg-primary: #f8fafc;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: #f1f5f9;
+  --color-text-primary: #1e293b;
+  --color-text-secondary: #64748b;
+  --color-accent: #dc2626;
+  --color-accent-hover: #b91c1c;
+  --color-border: #e2e8f0;
+  --color-shadow: rgba(0, 0, 0, 0.1);
+
+  --color-risk-safe: #16a34a;
+  --color-risk-low: #2563eb;
+  --color-risk-unknown: #6b7280;
+  --color-risk-warning: #d97706;
+  --color-risk-dangerous: #dc2626;
 }
 
 * {
@@ -39,15 +87,18 @@ html, body {
   width: 100%;
   height: 100%;
   font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 14px;
+  font-size: var(--font-size-base);
   background-color: var(--color-bg-primary);
   color: var(--color-text-primary);
   overflow: hidden;
+  transition: background-color var(--transition-normal), color var(--transition-normal);
 }
 
 #app {
   width: 100%;
   height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Scrollbar */
@@ -67,4 +118,215 @@ html, body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-border);
+}
+
+/* Utility Classes */
+.theme-toggle {
+  position: absolute;
+  top: var(--spacing-md);
+  right: var(--spacing-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  cursor: pointer;
+  color: var(--color-text-primary);
+  transition: all var(--transition-fast);
+  z-index: 100;
+}
+
+.theme-toggle:hover {
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-accent);
+}
+
+/* Risk Level Badges */
+.risk-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.risk-badge--safe {
+  background-color: rgba(74, 222, 128, 0.15);
+  color: var(--color-risk-safe);
+}
+
+.risk-badge--low {
+  background-color: rgba(96, 165, 250, 0.15);
+  color: var(--color-risk-low);
+}
+
+.risk-badge--unknown {
+  background-color: rgba(156, 163, 175, 0.15);
+  color: var(--color-risk-unknown);
+}
+
+.risk-badge--warning {
+  background-color: rgba(251, 191, 36, 0.15);
+  color: var(--color-risk-warning);
+}
+
+.risk-badge--dangerous {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: var(--color-risk-dangerous);
+}
+
+/* Startup Type Badges */
+.startup-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+}
+
+.startup-badge--registry {
+  background-color: rgba(233, 69, 96, 0.15);
+  color: var(--color-startup-registry);
+}
+
+.startup-badge--folder {
+  background-color: rgba(96, 165, 250, 0.15);
+  color: var(--color-startup-folder);
+}
+
+.startup-badge--service {
+  background-color: rgba(167, 139, 250, 0.15);
+  color: var(--color-startup-service);
+}
+
+.startup-badge--task {
+  background-color: rgba(251, 191, 36, 0.15);
+  color: var(--color-startup-task);
+}
+
+.startup-badge--normal {
+  background-color: rgba(156, 163, 175, 0.15);
+  color: var(--color-startup-normal);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn var(--transition-normal);
+}
+
+.animate-slide-in {
+  animation: slideIn var(--transition-normal);
+}
+
+.animate-pulse {
+  animation: pulse 2s infinite;
+}
+
+/* Loading States */
+.loading-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-secondary) 25%,
+    var(--color-bg-tertiary) 50%,
+    var(--color-bg-secondary) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Focus States */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Button Base */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background-color: var(--color-accent);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--color-accent-hover);
+}
+
+.btn-secondary {
+  background-color: var(--color-bg-secondary);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: var(--color-bg-tertiary);
+}
+
+.btn-danger {
+  background-color: var(--color-danger);
+  color: white;
+}
+
+.btn-danger:hover:not(:disabled) {
+  opacity: 0.9;
 }

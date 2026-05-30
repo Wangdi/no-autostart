@@ -1,4 +1,6 @@
+use crate::utils::registry::{RegistryScanner, StartupType};
 use serde::{Deserialize, Serialize};
+use std::sync::Mutex;
 use sysinfo::{Pid, Process, System};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -18,17 +20,31 @@ pub struct ProcessInfo {
 
 pub struct ProcessManager {
     system: System,
+    registry_scanner: Mutex<RegistryScanner>,
 }
 
 impl ProcessManager {
     pub fn new() -> Self {
         let mut system = System::new_all();
         system.refresh_all();
-        Self { system }
+
+        // Initialize and scan registry for autostart entries
+        let mut scanner = RegistryScanner::new();
+        scanner.scan_all();
+
+        Self {
+            system,
+            registry_scanner: Mutex::new(scanner),
+        }
     }
 
     pub fn refresh(&mut self) {
         self.system.refresh_all();
+
+        // Also refresh registry scanner
+        if let Ok(mut scanner) = self.registry_scanner.lock() {
+            scanner.refresh();
+        }
     }
 
     pub fn get_all_processes(&mut self) -> Vec<ProcessInfo> {
@@ -46,11 +62,12 @@ impl ProcessManager {
             let type_priority = |t: &str| -> i32 {
                 match t {
                     "registry_run" => 0,
-                    "task_scheduler" => 1,
-                    "windows_service" => 2,
-                    "startup_folder" => 3,
-                    "normal" => 4,
-                    _ => 5,
+                    "registry_run_once" => 1,
+                    "task_scheduler" => 2,
+                    "windows_service" => 3,
+                    "startup_folder" => 4,
+                    "normal" => 5,
+                    _ => 6,
                 }
             };
             let priority_a = type_priority(&a.startup_type);
@@ -69,7 +86,9 @@ impl ProcessManager {
     }
 
     fn process_to_info(&self, pid: Pid, process: &Process) -> ProcessInfo {
-        let startup_info = self.detect_startup_type(process);
+        let (startup_type, startup_location) = self.detect_startup_type(process);
+        let risk_level = self.assess_risk_level(process, &startup_type);
+        let can_close = self.can_safely_close(process, &startup_type, &risk_level);
 
         ProcessInfo {
             pid: pid.as_u32(),
@@ -78,22 +97,34 @@ impl ProcessManager {
                 .exe()
                 .map(|p| p.to_string_lossy().to_string())
                 .unwrap_or_default(),
-            publisher: None, // Will be filled by signature verification
+            publisher: self.extract_publisher(process),
             cpu_usage: process.cpu_usage(),
             memory_usage: process.memory(),
             running_time: process.run_time(),
-            startup_type: startup_info.0,
-            startup_location: startup_info.1,
-            risk_level: String::from("unknown"),
-            can_close: true,
+            startup_type,
+            startup_location,
+            risk_level,
+            can_close,
         }
     }
 
     fn detect_startup_type(&self, process: &Process) -> (String, Option<String>) {
-        // This will be enhanced with actual registry and task scheduler checks
-        let name = process.name().to_lowercase();
+        let name = process.name().to_string();
+        let path = process
+            .exe()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_default();
 
-        // Check for known system processes
+        // First check against registry scanner for autostart entries
+        if let Ok(scanner) = self.registry_scanner.lock() {
+            let (startup_type, location) = scanner.get_startup_type(&name, &path);
+            if startup_type != StartupType::Normal {
+                return (startup_type.to_string(), location);
+            }
+        }
+
+        // Fallback to known system processes
+        let name_lower = name.to_lowercase();
         let system_processes = [
             "svchost.exe",
             "csrss.exe",
@@ -108,15 +139,143 @@ impl ProcessManager {
             "taskhostw.exe",
         ];
 
-        if system_processes.iter().any(|s| name.contains(s)) {
+        if system_processes.iter().any(|s| name_lower.contains(s)) {
             return (String::from("windows_service"), None);
         }
 
         (String::from("normal"), None)
     }
 
+    /// Assess risk level based on process characteristics
+    fn assess_risk_level(&self, process: &Process, startup_type: &str) -> String {
+        let name = process.name().to_lowercase();
+
+        // High-risk indicators
+        let suspicious_patterns = [
+            "miner",
+            "crypto",
+            "hack",
+            "crack",
+            "keygen",
+            "patch",
+            "cheat",
+            "aimbot",
+        ];
+
+        for pattern in &suspicious_patterns {
+            if name.contains(pattern) {
+                return String::from("dangerous");
+            }
+        }
+
+        // Registry autostart entries are higher risk
+        if startup_type == "registry_run" || startup_type == "registry_run_once" {
+            // Check for suspicious locations
+            if let Some(exe_path) = process.exe() {
+                let path_str = exe_path.to_string_lossy().to_lowercase();
+
+                // Suspicious if running from temp, appdata, or unusual locations
+                if path_str.contains("\\temp\\")
+                    || path_str.contains("\\appdata\\local\\temp\\")
+                    || path_str.contains("\\users\\public\\")
+                {
+                    return String::from("warning");
+                }
+            }
+
+            return String::from("low");
+        }
+
+        // System processes are safe but should not be closed
+        let system_processes = [
+            "svchost.exe",
+            "csrss.exe",
+            "lsass.exe",
+            "wininit.exe",
+            "services.exe",
+            "smss.exe",
+            "winlogon.exe",
+            "dwm.exe",
+        ];
+
+        if system_processes.iter().any(|s| name.contains(s)) {
+            return String::from("safe");
+        }
+
+        // Default to unknown for normal processes
+        if startup_type == "normal" {
+            return String::from("unknown");
+        }
+
+        String::from("low")
+    }
+
+    /// Determine if a process can be safely closed
+    fn can_safely_close(&self, process: &Process, startup_type: &str, risk_level: &str) -> bool {
+        let name = process.name().to_lowercase();
+
+        // Never allow closing critical system processes
+        let critical_processes = [
+            "svchost.exe",
+            "csrss.exe",
+            "lsass.exe",
+            "wininit.exe",
+            "services.exe",
+            "smss.exe",
+            "winlogon.exe",
+            "dwm.exe",
+            "explorer.exe",
+            "system",
+            "registry",
+        ];
+
+        if critical_processes.iter().any(|s| name.contains(s)) {
+            return false;
+        }
+
+        // Don't allow closing if risk level is safe and it's a system process
+        if risk_level == "safe" && startup_type == "windows_service" {
+            return false;
+        }
+
+        // Allow closing for most other processes
+        true
+    }
+
+    /// Extract publisher information from process
+    /// TODO: Implement actual signature verification using Windows API
+    fn extract_publisher(&self, process: &Process) -> Option<String> {
+        // For now, return None. Will be implemented with signature verification
+        let _ = process;
+        None
+    }
+
     pub fn close_process(&mut self, pid: u32) -> Result<(), String> {
+        // Verify process exists and can be closed
         if let Some(process) = self.system.process(Pid::from_u32(pid)) {
+            let name = process.name().to_lowercase();
+
+            // Double-check critical processes
+            let critical = [
+                "svchost.exe",
+                "csrss.exe",
+                "lsass.exe",
+                "wininit.exe",
+                "services.exe",
+                "smss.exe",
+                "winlogon.exe",
+                "dwm.exe",
+                "explorer.exe",
+                "system",
+            ];
+
+            if critical.iter().any(|s| name.contains(s)) {
+                return Err(format!(
+                    "Cannot close critical system process: {}",
+                    process.name()
+                ));
+            }
+
             process.kill();
             Ok(())
         } else {
