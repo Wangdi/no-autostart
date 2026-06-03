@@ -47,14 +47,16 @@ describe('StartupType Enum', () => {
 describe('RiskLevel Enum', () => {
   it('should have all expected enum values', () => {
     expect(RiskLevel.Safe).toBe('safe')
+    expect(RiskLevel.Low).toBe('low')
     expect(RiskLevel.Caution).toBe('caution')
+    expect(RiskLevel.Dangerous).toBe('dangerous')
     expect(RiskLevel.Warning).toBe('warning')
     expect(RiskLevel.Unknown).toBe('unknown')
   })
 
-  it('should have exactly 4 values', () => {
+  it('should have exactly 6 values', () => {
     const values = Object.values(RiskLevel)
-    expect(values).toHaveLength(4)
+    expect(values).toHaveLength(6)
   })
 
   it('should only contain string values', () => {
@@ -71,6 +73,7 @@ describe('RiskLevel Enum', () => {
 
     expect(isRiskLevel('safe')).toBe(true)
     expect(isRiskLevel('warning')).toBe(true)
+    expect(isRiskLevel('dangerous')).toBe(true)
     expect(isRiskLevel('invalid')).toBe(false)
     expect(isRiskLevel('')).toBe(false)
   })
@@ -162,14 +165,16 @@ describe('RISK_LEVEL_LABELS', () => {
 
   it('should have correct Chinese labels', () => {
     expect(RISK_LEVEL_LABELS[RiskLevel.Safe]).toBe('安全')
+    expect(RISK_LEVEL_LABELS[RiskLevel.Low]).toBe('低风险')
     expect(RISK_LEVEL_LABELS[RiskLevel.Caution]).toBe('谨慎')
+    expect(RISK_LEVEL_LABELS[RiskLevel.Dangerous]).toBe('危险')
     expect(RISK_LEVEL_LABELS[RiskLevel.Warning]).toBe('警告')
     expect(RISK_LEVEL_LABELS[RiskLevel.Unknown]).toBe('未知')
   })
 
   it('should be accessible with bracket notation using enum values', () => {
     expect(RISK_LEVEL_LABELS['safe']).toBe('安全')
-    expect(RISK_LEVEL_LABELS['warning']).toBe('警告')
+    expect(RISK_LEVEL_LABELS['dangerous']).toBe('危险')
   })
 })
 
@@ -199,14 +204,16 @@ describe('RISK_LEVEL_COLORS', () => {
 
   it('should have correct color mappings', () => {
     expect(RISK_LEVEL_COLORS[RiskLevel.Safe]).toBe('var(--color-success)')
+    expect(RISK_LEVEL_COLORS[RiskLevel.Low]).toBe('var(--color-risk-low)')
     expect(RISK_LEVEL_COLORS[RiskLevel.Caution]).toBe('var(--color-warning)')
-    expect(RISK_LEVEL_COLORS[RiskLevel.Warning]).toBe('var(--color-danger)')
+    expect(RISK_LEVEL_COLORS[RiskLevel.Dangerous]).toBe('var(--color-danger)')
+    expect(RISK_LEVEL_COLORS[RiskLevel.Warning]).toBe('var(--color-warning)')
     expect(RISK_LEVEL_COLORS[RiskLevel.Unknown]).toBe('var(--color-text-secondary)')
   })
 
   it('should be accessible with bracket notation using enum values', () => {
     expect(RISK_LEVEL_COLORS['safe']).toBe('var(--color-success)')
-    expect(RISK_LEVEL_COLORS['warning']).toBe('var(--color-danger)')
+    expect(RISK_LEVEL_COLORS['dangerous']).toBe('var(--color-danger)')
   })
 })
 
@@ -388,7 +395,7 @@ describe('ProcessFilter Interface', () => {
     }
 
     expect(filter.startupTypes).toHaveLength(7)
-    expect(filter.riskLevels).toHaveLength(4)
+    expect(filter.riskLevels).toHaveLength(6)
   })
 })
 
@@ -429,7 +436,8 @@ describe('Type Interoperability', () => {
       return STARTUP_TYPE_LABELS[type]
     }
 
-    expect(getRiskColor(RiskLevel.Warning)).toBe('var(--color-danger)')
+    expect(getRiskColor(RiskLevel.Dangerous)).toBe('var(--color-danger)')
+    expect(getRiskColor(RiskLevel.Warning)).toBe('var(--color-warning)')
     expect(getStartupTypeLabel(StartupType.WindowsService)).toBe('系统服务')
   })
 })

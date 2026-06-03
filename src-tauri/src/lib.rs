@@ -1,4 +1,5 @@
 pub mod commands;
+pub mod constants;
 pub mod error;
 pub mod modules;
 pub mod tray;

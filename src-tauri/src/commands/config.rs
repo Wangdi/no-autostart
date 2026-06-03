@@ -1,3 +1,4 @@
+use crate::error::{AppError, AppResult};
 use crate::modules::config_manager::{AutoCloseConfig, AutoCloseItem, ConfigManager};
 use std::sync::Mutex;
 use tauri::State;
@@ -14,9 +15,9 @@ pub fn get_config(state: State<ConfigManagerState>) -> AutoCloseConfig {
 pub fn save_config(
     config: AutoCloseConfig,
     state: State<ConfigManagerState>,
-) -> Result<String, String> {
+) -> AppResult<String> {
     let mut manager = state.0.lock().unwrap();
-    manager.save_config(config)?;
+    manager.save_config(config).map_err(|e| AppError::ConfigWriteFailed(e))?;
     Ok("Config saved successfully".to_string())
 }
 
@@ -24,9 +25,9 @@ pub fn save_config(
 pub fn add_to_auto_close_list(
     item: AutoCloseItem,
     state: State<ConfigManagerState>,
-) -> Result<String, String> {
+) -> AppResult<String> {
     let mut manager = state.0.lock().unwrap();
-    manager.add_to_auto_close_list(item)?;
+    manager.add_to_auto_close_list(item).map_err(|e| AppError::ConfigWriteFailed(e))?;
     Ok("Added to auto close list".to_string())
 }
 
@@ -34,9 +35,9 @@ pub fn add_to_auto_close_list(
 pub fn remove_from_auto_close_list(
     id: String,
     state: State<ConfigManagerState>,
-) -> Result<String, String> {
+) -> AppResult<String> {
     let mut manager = state.0.lock().unwrap();
-    manager.remove_from_auto_close_list(&id)?;
+    manager.remove_from_auto_close_list(&id).map_err(|e| AppError::ConfigWriteFailed(e))?;
     Ok("Removed from auto close list".to_string())
 }
 

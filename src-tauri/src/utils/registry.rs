@@ -129,7 +129,7 @@ impl RegistryScanner {
     }
 
     /// Scan a specific registry key for autostart entries
-    fn scan_registry_key(&mut self, hive: HKEY, path: &str, startup_type: StartupType) {
+    fn scan_registry_key(&mut self, hive: isize, path: &str, startup_type: StartupType) {
         let hklm = RegKey::predef(hive);
 
         if let Ok(key) = hklm.open_subkey(path) {
@@ -140,23 +140,13 @@ impl RegistryScanner {
                             vtype: REG_SZ | REG_EXPAND_SZ,
                             bytes,
                         } => {
-                            // Handle null-terminated string
-                            String::from_utf16_lossy(
-                                &bytes
-                                    .chunks(2)
-                                    .take_while(|chunk| chunk != &[0, 0])
-                                    .flat_map(|chunk| {
-                                        if chunk.len() == 2 {
-                                            vec![chunk[0], chunk[1]]
-                                        } else {
-                                            vec![chunk[0], 0]
-                                        }
-                                    })
-                                    .collect::<Vec<u8>>()
-                                    .as_slice(),
-                            )
-                            .trim_end_matches('\0')
-                            .to_string()
+                            // Convert bytes to wide string
+                            let wide: Vec<u16> = bytes
+                                .chunks_exact(2)
+                                .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
+                                .take_while(|&ch| ch != 0)
+                                .collect();
+                            String::from_utf16_lossy(&wide)
                         }
                         _ => continue,
                     };
@@ -408,12 +398,6 @@ mod tests {
 
         // Only whitespace
         assert_eq!(extract_executable_name("   "), None);
-
-        // Path without executable name
-        let command = r"C:\Program Files\";
-        let result = extract_executable_name(command);
-        // Should still work if there's no file name
-        assert!(result.is_none() || result.is_some());
     }
 
     #[test]

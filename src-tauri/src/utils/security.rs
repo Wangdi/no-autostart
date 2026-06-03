@@ -1,3 +1,4 @@
+use crate::constants;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -20,30 +21,11 @@ pub struct SecurityPolicy {
 
 impl Default for SecurityPolicy {
     fn default() -> Self {
-        let mut protected = HashSet::new();
-        let protected_list = [
-            "svchost.exe",
-            "csrss.exe",
-            "lsass.exe",
-            "wininit.exe",
-            "services.exe",
-            "smss.exe",
-            "winlogon.exe",
-            "dwm.exe",
-            "explorer.exe",
-            "system",
-            "registry",
-            "runtimebroker.exe",
-            "taskhostw.exe",
-            "fontdrvhost.exe",
-            "sihost.exe",
-            "cmd.exe",
-            "powershell.exe",
-            "windowsinternal.composableshell.experiences.textinput.inputapp.exe",
-        ];
-        for proc in protected_list {
-            protected.insert(proc.to_lowercase());
-        }
+        // Use constants for critical processes
+        let protected: HashSet<String> = constants::CRITICAL_PROCESSES
+            .iter()
+            .map(|s| s.to_lowercase())
+            .collect();
 
         let mut confirmation = HashSet::new();
         let confirmation_list = [
@@ -159,17 +141,14 @@ pub struct WhitelistManager {
 
 impl Default for WhitelistManager {
     fn default() -> Self {
-        let mut allowed = HashSet::new();
-        let allowed_list = [
-            "svchost.exe",
-            "explorer.exe",
-            "dwm.exe",
-            "runtimebroker.exe",
-            "taskhostw.exe",
-        ];
-        for proc in allowed_list {
-            allowed.insert(proc.to_lowercase());
-        }
+        let allowed: HashSet<String> = constants::SYSTEM_PROCESSES
+            .iter()
+            .filter(|p| {
+                ["svchost.exe", "explorer.exe", "dwm.exe", "runtimebroker.exe", "taskhostw.exe"]
+                    .contains(p)
+            })
+            .map(|s| s.to_lowercase())
+            .collect();
 
         Self {
             allowed_processes: allowed,
@@ -220,7 +199,7 @@ mod tests {
     fn test_is_protected() {
         let policy = SecurityPolicy::default();
         assert!(policy.is_protected("svchost.exe"));
-        assert!(policy.is_protected("SVCHOST.EXE")); // Case insensitive
+        assert!(policy.is_protected("SVCHOST.EXE"));
         assert!(policy.is_protected("explorer.exe"));
         assert!(!policy.is_protected("notepad.exe"));
     }

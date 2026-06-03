@@ -74,9 +74,15 @@ impl From<serde_json::Error> for AppError {
     }
 }
 
-impl From<winreg::io::Error> for AppError {
-    fn from(err: winreg::io::Error) -> Self {
-        AppError::RegistryAccessFailed(err.to_string())
+impl From<String> for AppError {
+    fn from(err: String) -> Self {
+        if err.contains("not found") {
+            AppError::ProcessNotFound(0)
+        } else if err.contains("Cannot close critical") {
+            AppError::CriticalProcess(err)
+        } else {
+            AppError::Unknown(err)
+        }
     }
 }
 
@@ -110,6 +116,21 @@ mod tests {
             let app_err: AppError = e.into();
             assert!(matches!(app_err, AppError::SerializationError(_)));
         }
+    }
+
+    #[test]
+    fn test_app_error_from_string() {
+        let err = "Process 999 not found".to_string();
+        let app_err: AppError = err.into();
+        assert!(matches!(app_err, AppError::ProcessNotFound(_)));
+
+        let err = "Cannot close critical system process".to_string();
+        let app_err: AppError = err.into();
+        assert!(matches!(app_err, AppError::CriticalProcess(_)));
+
+        let err = "Some unknown error".to_string();
+        let app_err: AppError = err.into();
+        assert!(matches!(app_err, AppError::Unknown(_)));
     }
 
     #[test]
@@ -159,7 +180,6 @@ mod tests {
         ];
 
         for err in errors {
-            // Verify each error can be displayed
             let msg = err.to_string();
             assert!(!msg.is_empty());
         }

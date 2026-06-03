@@ -11,8 +11,8 @@ describe('ProcessItem', () => {
     executablePath: 'C:\\Program Files\\Test\\test-process.exe',
     publisher: 'Test Publisher',
     cpuUsage: 5.5,
-    memoryUsage: 102400000, // ~97.6 MB
-    runningTime: 3665, // 1h 1m 5s
+    memoryUsage: 102400000,
+    runningTime: 3665,
     startupType: StartupType.RegistryRun,
     startupLocation: 'HKLM\\Run',
     isKnownProcess: true,
@@ -122,7 +122,6 @@ describe('ProcessItem', () => {
     const closeButton = wrapper.find('.btn-close')
     await closeButton.trigger('click')
 
-    // Should emit close but not toggle (due to @click.stop)
     expect(wrapper.emitted('close')).toHaveLength(1)
     expect(wrapper.emitted('toggle')).toBeUndefined()
   })
@@ -196,22 +195,24 @@ describe('ProcessItem', () => {
     const wrapper = mount(ProcessItem, {
       props: {
         process: createMockProcess({
-          riskLevel: RiskLevel.Warning
+          riskLevel: RiskLevel.Dangerous
         }),
         expanded: true
       }
     })
 
     const badge = wrapper.find('.risk-badge')
-    expect(badge.text()).toBe('警告')
+    expect(badge.text()).toBe('危险')
     expect(badge.attributes('style')).toContain('var(--color-danger)')
   })
 
   it('displays all risk level badges correctly', () => {
     const riskLevels = [
       { level: RiskLevel.Safe, label: '安全', color: 'var(--color-success)' },
+      { level: RiskLevel.Low, label: '低风险', color: 'var(--color-risk-low)' },
       { level: RiskLevel.Caution, label: '谨慎', color: 'var(--color-warning)' },
-      { level: RiskLevel.Warning, label: '警告', color: 'var(--color-danger)' },
+      { level: RiskLevel.Dangerous, label: '危险', color: 'var(--color-danger)' },
+      { level: RiskLevel.Warning, label: '警告', color: 'var(--color-warning)' },
       { level: RiskLevel.Unknown, label: '未知', color: 'var(--color-text-secondary)' }
     ]
 
@@ -238,7 +239,7 @@ describe('ProcessItem', () => {
     })
 
     const buttons = wrapper.findAll('.btn-action')
-    await buttons[0].trigger('click') // 关闭进程
+    await buttons[0].trigger('click')
 
     expect(wrapper.emitted('close')).toHaveLength(1)
   })
@@ -252,7 +253,7 @@ describe('ProcessItem', () => {
     })
 
     const buttons = wrapper.findAll('.btn-action')
-    await buttons[1].trigger('click') // 加入自动关闭列表
+    await buttons[1].trigger('click')
 
     expect(wrapper.emitted('addToAutoClose')).toHaveLength(1)
   })
@@ -266,7 +267,7 @@ describe('ProcessItem', () => {
     })
 
     const buttons = wrapper.findAll('.btn-action')
-    await buttons[2].trigger('click') // 永久关闭
+    await buttons[2].trigger('click')
 
     expect(wrapper.emitted('permanentClose')).toHaveLength(1)
   })
@@ -275,31 +276,29 @@ describe('ProcessItem', () => {
     it('formats memory >= 1 MB correctly', () => {
       const wrapper = mount(ProcessItem, {
         props: {
-          process: createMockProcess({ memoryUsage: 102400000 }), // ~97.66 MB
+          process: createMockProcess({ memoryUsage: 102400000 }),
           expanded: false
         }
       })
 
-      // 102400000 / (1024 * 1024) = 97.65625 MB
       expect(wrapper.find('.process-memory').text()).toBe('97.7 MB')
     })
 
     it('formats memory < 1 MB as KB', () => {
       const wrapper = mount(ProcessItem, {
         props: {
-          process: createMockProcess({ memoryUsage: 512000 }), // 500 KB
+          process: createMockProcess({ memoryUsage: 512000 }),
           expanded: false
         }
       })
 
-      // 512000 / 1024 = 500 KB
       expect(wrapper.find('.process-memory').text()).toBe('500 KB')
     })
 
     it('formats memory at 1 MB boundary correctly', () => {
       const wrapper = mount(ProcessItem, {
         props: {
-          process: createMockProcess({ memoryUsage: 1048576 }), // Exactly 1 MB
+          process: createMockProcess({ memoryUsage: 1048576 }),
           expanded: false
         }
       })
@@ -310,7 +309,7 @@ describe('ProcessItem', () => {
     it('formats small memory values correctly', () => {
       const wrapper = mount(ProcessItem, {
         props: {
-          process: createMockProcess({ memoryUsage: 1024 }), // 1 KB
+          process: createMockProcess({ memoryUsage: 1024 }),
           expanded: false
         }
       })
@@ -323,7 +322,7 @@ describe('ProcessItem', () => {
     it('formats duration with hours correctly', () => {
       const wrapper = mount(ProcessItem, {
         props: {
-          process: createMockProcess({ runningTime: 3665 }), // 1h 1m 5s
+          process: createMockProcess({ runningTime: 3665 }),
           expanded: true
         }
       })
@@ -334,7 +333,7 @@ describe('ProcessItem', () => {
     it('formats duration with only minutes correctly', () => {
       const wrapper = mount(ProcessItem, {
         props: {
-          process: createMockProcess({ runningTime: 185 }), // 3m 5s
+          process: createMockProcess({ runningTime: 185 }),
           expanded: true
         }
       })
@@ -345,7 +344,7 @@ describe('ProcessItem', () => {
     it('formats duration with only seconds correctly', () => {
       const wrapper = mount(ProcessItem, {
         props: {
-          process: createMockProcess({ runningTime: 45 }), // 45s
+          process: createMockProcess({ runningTime: 45 }),
           expanded: true
         }
       })
