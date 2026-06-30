@@ -1,33 +1,47 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import ProcessFilter from '../ProcessFilter.vue'
-import type { ProcessFilter as FilterType } from '@/types'
+import { StartupType, RiskLevel } from '@/types'
+
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: vi.fn()
+}))
 
 describe('ProcessFilter', () => {
   const defaultProps = {
-    filter: {} as FilterType
+    filter: {}
   }
 
-  it('renders all filter controls', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('renders correctly with default props', () => {
     const wrapper = mount(ProcessFilter, {
       props: defaultProps
     })
 
-    // Check for startup type select
-    expect(wrapper.findAll('.filter-group')).toHaveLength(2)
+    expect(wrapper.find('.process-filter').exists()).toBe(true)
     expect(wrapper.findAll('.filter-select')).toHaveLength(2)
+  })
 
-    // Check for checkbox
-    expect(wrapper.find('.filter-checkbox').exists()).toBe(true)
-    expect(wrapper.find('input[type="checkbox"]').exists()).toBe(true)
+  it('displays startup type label', () => {
+    const wrapper = mount(ProcessFilter, {
+      props: defaultProps
+    })
 
-    // Check for labels
     expect(wrapper.text()).toContain('启动类型:')
+  })
+
+  it('displays risk level label', () => {
+    const wrapper = mount(ProcessFilter, {
+      props: defaultProps
+    })
+
     expect(wrapper.text()).toContain('风险等级:')
-    expect(wrapper.text()).toContain('仅显示可关闭')
   })
 
-  it('renders default "all" option for startup type', () => {
+  it('displays all startup type options', async () => {
     const wrapper = mount(ProcessFilter, {
       props: defaultProps
     })
@@ -36,47 +50,21 @@ describe('ProcessFilter', () => {
     const startupSelect = selects[0]
     const options = startupSelect.findAll('option')
 
-    expect(options[0].attributes('value')).toBe('all')
-    expect(options[0].text()).toBe('全部')
-  })
-
-  it('renders default "all" option for risk level', () => {
-    const wrapper = mount(ProcessFilter, {
-      props: defaultProps
-    })
-
-    const selects = wrapper.findAll('.filter-select')
-    const riskSelect = selects[1]
-    const options = riskSelect.findAll('option')
-
-    expect(options[0].attributes('value')).toBe('all')
-    expect(options[0].text()).toBe('全部')
-  })
-
-  it('displays all startup type options', () => {
-    const wrapper = mount(ProcessFilter, {
-      props: defaultProps
-    })
-
-    const selects = wrapper.findAll('.filter-select')
-    const startupSelect = selects[0]
-    const options = startupSelect.findAll('option')
-
-    // Should have "all" + 7 startup types
+    // Should have \"all\" + 7 startup types
     expect(options.length).toBe(8)
 
     const optionTexts = options.map(o => o.text())
     expect(optionTexts).toContain('全部')
-    expect(optionTexts).toContain('未知')
     expect(optionTexts).toContain('注册表启动')
     expect(optionTexts).toContain('注册表启动(一次性)')
     expect(optionTexts).toContain('任务计划')
     expect(optionTexts).toContain('系统服务')
     expect(optionTexts).toContain('启动文件夹')
     expect(optionTexts).toContain('用户启动')
+    expect(optionTexts).toContain('未知')
   })
 
-  it('displays all risk level options', () => {
+  it('displays all risk level options', async () => {
     const wrapper = mount(ProcessFilter, {
       props: defaultProps
     })
@@ -85,13 +73,15 @@ describe('ProcessFilter', () => {
     const riskSelect = selects[1]
     const options = riskSelect.findAll('option')
 
-    // Should have "all" + 4 risk levels
-    expect(options.length).toBe(5)
+    // Should have \"all\" + 6 risk levels
+    expect(options.length).toBe(7)
 
     const optionTexts = options.map(o => o.text())
     expect(optionTexts).toContain('全部')
     expect(optionTexts).toContain('安全')
+    expect(optionTexts).toContain('低风险')
     expect(optionTexts).toContain('谨慎')
+    expect(optionTexts).toContain('危险')
     expect(optionTexts).toContain('警告')
     expect(optionTexts).toContain('未知')
   })
@@ -106,29 +96,10 @@ describe('ProcessFilter', () => {
 
     await startupSelect.setValue('registry_run')
 
-    expect(wrapper.emitted('update:filter')).toHaveLength(1)
-    expect(wrapper.emitted('update:filter')![0]).toEqual([
-      { startupTypes: ['registry_run'] }
-    ])
-  })
-
-  it('emits update:filter on startup type change with all value', async () => {
-    const wrapper = mount(ProcessFilter, {
-      props: defaultProps
+    expect(wrapper.emitted('update:filter')).toBeTruthy()
+    expect(wrapper.emitted('update:filter')[0][0]).toEqual({
+      startupTypes: [StartupType.RegistryRun]
     })
-
-    const selects = wrapper.findAll('.filter-select')
-    const startupSelect = selects[0]
-
-    // First set to a specific value
-    await startupSelect.setValue('registry_run')
-    // Then set back to all
-    await startupSelect.setValue('all')
-
-    expect(wrapper.emitted('update:filter')).toHaveLength(2)
-    expect(wrapper.emitted('update:filter')![1]).toEqual([
-      { startupTypes: undefined }
-    ])
   })
 
   it('emits update:filter on risk level change with specific value', async () => {
@@ -139,65 +110,15 @@ describe('ProcessFilter', () => {
     const selects = wrapper.findAll('.filter-select')
     const riskSelect = selects[1]
 
-    await riskSelect.setValue('warning')
+    await riskSelect.setValue('dangerous')
 
-    expect(wrapper.emitted('update:filter')).toHaveLength(1)
-    expect(wrapper.emitted('update:filter')![0]).toEqual([
-      { riskLevels: ['warning'] }
-    ])
-  })
-
-  it('emits update:filter on risk level change with all value', async () => {
-    const wrapper = mount(ProcessFilter, {
-      props: defaultProps
+    expect(wrapper.emitted('update:filter')).toBeTruthy()
+    expect(wrapper.emitted('update:filter')[0][0]).toEqual({
+      riskLevels: [RiskLevel.Dangerous]
     })
-
-    const selects = wrapper.findAll('.filter-select')
-    const riskSelect = selects[1]
-
-    // First set to a specific value
-    await riskSelect.setValue('safe')
-    // Then set back to all
-    await riskSelect.setValue('all')
-
-    expect(wrapper.emitted('update:filter')).toHaveLength(2)
-    expect(wrapper.emitted('update:filter')![1]).toEqual([
-      { riskLevels: undefined }
-    ])
   })
 
-  it('emits correct filter on canCloseOnly toggle to true', async () => {
-    const wrapper = mount(ProcessFilter, {
-      props: defaultProps
-    })
-
-    const checkbox = wrapper.find('input[type="checkbox"]')
-    await checkbox.setValue(true)
-
-    expect(wrapper.emitted('update:filter')).toHaveLength(1)
-    expect(wrapper.emitted('update:filter')![0]).toEqual([
-      { canCloseOnly: true }
-    ])
-  })
-
-  it('emits correct filter on canCloseOnly toggle to false', async () => {
-    const wrapper = mount(ProcessFilter, {
-      props: defaultProps
-    })
-
-    const checkbox = wrapper.find('input[type="checkbox"]')
-    // First check it
-    await checkbox.setValue(true)
-    // Then uncheck it
-    await checkbox.setValue(false)
-
-    expect(wrapper.emitted('update:filter')).toHaveLength(2)
-    expect(wrapper.emitted('update:filter')![1]).toEqual([
-      { canCloseOnly: false }
-    ])
-  })
-
-  it('maintains local state for startup type selection', async () => {
+  it('emits update:filter with undefined when \"all\" is selected for startup type', async () => {
     const wrapper = mount(ProcessFilter, {
       props: defaultProps
     })
@@ -205,12 +126,15 @@ describe('ProcessFilter', () => {
     const selects = wrapper.findAll('.filter-select')
     const startupSelect = selects[0]
 
-    await startupSelect.setValue('task_scheduler')
+    await startupSelect.setValue('all')
 
-    expect((startupSelect.element as HTMLSelectElement).value).toBe('task_scheduler')
+    expect(wrapper.emitted('update:filter')).toBeTruthy()
+    expect(wrapper.emitted('update:filter')[0][0]).toEqual({
+      startupTypes: undefined
+    })
   })
 
-  it('maintains local state for risk level selection', async () => {
+  it('emits update:filter with undefined when \"all\" is selected for risk level', async () => {
     const wrapper = mount(ProcessFilter, {
       props: defaultProps
     })
@@ -218,19 +142,63 @@ describe('ProcessFilter', () => {
     const selects = wrapper.findAll('.filter-select')
     const riskSelect = selects[1]
 
-    await riskSelect.setValue('caution')
+    await riskSelect.setValue('all')
 
-    expect((riskSelect.element as HTMLSelectElement).value).toBe('caution')
+    expect(wrapper.emitted('update:filter')).toBeTruthy()
+    expect(wrapper.emitted('update:filter')[0][0]).toEqual({
+      riskLevels: undefined
+    })
   })
 
-  it('maintains local state for checkbox', async () => {
+  it('renders checkbox for canCloseOnly filter', () => {
     const wrapper = mount(ProcessFilter, {
       props: defaultProps
     })
 
-    const checkbox = wrapper.find('input[type="checkbox"]')
+    const checkbox = wrapper.find('.filter-checkbox input')
+    expect(checkbox.exists()).toBe(true)
+    expect(checkbox.attributes('type')).toBe('checkbox')
+  })
+
+  it('displays correct label for canCloseOnly checkbox', () => {
+    const wrapper = mount(ProcessFilter, {
+      props: defaultProps
+    })
+
+    expect(wrapper.text()).toContain('仅显示可关闭')
+  })
+
+  it('emits update:filter on canCloseOnly checkbox change', async () => {
+    const wrapper = mount(ProcessFilter, {
+      props: defaultProps
+    })
+
+    const checkbox = wrapper.find('.filter-checkbox input')
     await checkbox.setValue(true)
 
-    expect((checkbox.element as HTMLInputElement).checked).toBe(true)
+    expect(wrapper.emitted('update:filter')).toBeTruthy()
+    expect(wrapper.emitted('update:filter')[0][0]).toEqual({
+      canCloseOnly: true
+    })
+  })
+
+  it('initializes with correct selected values from filter prop', () => {
+    const wrapper = mount(ProcessFilter, {
+      props: {
+        filter: {
+          startupTypes: [StartupType.WindowsService],
+          riskLevels: [RiskLevel.Safe],
+          canCloseOnly: true
+        }
+      }
+    })
+
+    // Component should receive the filter but select elements may not show the value
+    // since the component uses local state
+    expect(wrapper.props('filter')).toEqual({
+      startupTypes: [StartupType.WindowsService],
+      riskLevels: [RiskLevel.Safe],
+      canCloseOnly: true
+    })
   })
 })

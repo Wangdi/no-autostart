@@ -10,7 +10,9 @@ export enum StartupType {
 
 export enum RiskLevel {
   Safe = 'safe',
+  Low = 'low',
   Caution = 'caution',
+  Dangerous = 'dangerous',
   Warning = 'warning',
   Unknown = 'unknown'
 }
@@ -38,7 +40,7 @@ export interface ProcessInfo {
   performanceImpact?: string
   recommendation?: string
   canClose: boolean
-  recommendedAction: RecommendedAction
+  recommendedAction?: RecommendedAction
 }
 
 export interface ProcessFilter {
@@ -60,14 +62,18 @@ export const STARTUP_TYPE_LABELS: Record<StartupType, string> = {
 
 export const RISK_LEVEL_LABELS: Record<RiskLevel, string> = {
   [RiskLevel.Safe]: '安全',
+  [RiskLevel.Low]: '低风险',
   [RiskLevel.Caution]: '谨慎',
+  [RiskLevel.Dangerous]: '危险',
   [RiskLevel.Warning]: '警告',
   [RiskLevel.Unknown]: '未知'
 }
 
 export const RISK_LEVEL_COLORS: Record<RiskLevel, string> = {
   [RiskLevel.Safe]: 'var(--color-success)',
+  [RiskLevel.Low]: 'var(--color-risk-low)',
   [RiskLevel.Caution]: 'var(--color-warning)',
-  [RiskLevel.Warning]: 'var(--color-danger)',
+  [RiskLevel.Dangerous]: 'var(--color-danger)',
+  [RiskLevel.Warning]: 'var(--color-warning)',
   [RiskLevel.Unknown]: 'var(--color-text-secondary)'
 }

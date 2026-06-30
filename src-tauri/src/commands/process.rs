@@ -1,3 +1,4 @@
+use crate::error::{AppError, AppResult};
 use crate::modules::process_manager::{ProcessInfo, ProcessManager};
 use std::sync::Mutex;
 use tauri::State;
@@ -11,9 +12,9 @@ pub fn get_all_processes(state: State<ProcessManagerState>) -> Vec<ProcessInfo> 
 }
 
 #[tauri::command]
-pub fn close_process(pid: u32, state: State<ProcessManagerState>) -> Result<String, String> {
+pub fn close_process(pid: u32, state: State<ProcessManagerState>) -> AppResult<String> {
     let mut manager = state.0.lock().unwrap();
-    manager.close_process(pid)?;
+    manager.close_process(pid).map_err(AppError::from)?;
     Ok(format!("Process {} closed successfully", pid))
 }
 
@@ -26,7 +27,6 @@ mod tests {
         let manager = ProcessManager::new();
         let state = ProcessManagerState(Mutex::new(manager));
 
-        // Verify we can lock and access the manager
         let mut locked = state.0.lock().unwrap();
         let processes = locked.get_all_processes();
         assert!(!processes.is_empty());

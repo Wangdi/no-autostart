@@ -1,3 +1,4 @@
+use crate::error::{AppError, AppResult};
 use crate::modules::history_manager::{HistoryManager, HistoryRecord, OperationHistory};
 use std::sync::Mutex;
 use tauri::State;
@@ -14,9 +15,9 @@ pub fn get_history(state: State<HistoryManagerState>) -> OperationHistory {
 pub fn add_history_record(
     record: HistoryRecord,
     state: State<HistoryManagerState>,
-) -> Result<String, String> {
+) -> AppResult<String> {
     let mut manager = state.0.lock().unwrap();
-    manager.add_record(record)?;
+    manager.add_record(record).map_err(|e| AppError::HistoryWriteFailed(e))?;
     Ok("History record added".to_string())
 }
 
@@ -24,9 +25,9 @@ pub fn add_history_record(
 pub fn revert_operation(
     id: String,
     state: State<HistoryManagerState>,
-) -> Result<HistoryRecord, String> {
+) -> AppResult<HistoryRecord> {
     let mut manager = state.0.lock().unwrap();
-    manager.revert_operation(&id)
+    manager.revert_operation(&id).map_err(|e| AppError::HistoryError(e))
 }
 
 #[cfg(test)]
