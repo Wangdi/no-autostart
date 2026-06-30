@@ -5,25 +5,35 @@ node_modules/
 dist/
 dist-ssr/
 src-tauri/target/
+build/
+
+# TypeScript incremental build cache
+*.tsbuildinfo
 
 # IDE
 .vscode/
+.vs/
 .idea/
 *.swp
 *.swo
+*.bak
 
 # OS
 .DS_Store
 Thumbs.db
+*.tmp
+*.temp
 
 # Logs
 *.log
 npm-debug.log*
+.pnpm-debug.log*
 
 # Environment
 .env
 .env.local
 .env.*.local
+*.local
 
 # Tauri
 src-tauri/Cargo.lock
@@ -40,3 +50,7 @@ src-tauri/gen/
 # Temporary scripts
 *.ps1
 create_icon*.py
+
+# Python cache (icon generation scripts)
+__pycache__/
+*.pyc
